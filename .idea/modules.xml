@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/apache-mahout-distribution.iml" filepath="$PROJECT_DIR$/apache-mahout-distribution.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout.iml" filepath="$PROJECT_DIR$/mahout.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-buildtools.iml" filepath="$PROJECT_DIR$/mahout-buildtools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-examples.iml" filepath="$PROJECT_DIR$/mahout-examples.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-h2o_2.10.iml" filepath="$PROJECT_DIR$/mahout-h2o_2.10.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-hdfs.iml" filepath="$PROJECT_DIR$/mahout-hdfs.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-integration.iml" filepath="$PROJECT_DIR$/mahout-integration.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-math.iml" filepath="$PROJECT_DIR$/mahout-math.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-math-scala_2.10.iml" filepath="$PROJECT_DIR$/mahout-math-scala_2.10.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-mr.iml" filepath="$PROJECT_DIR$/mahout-mr.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-spark-shell_2.10.iml" filepath="$PROJECT_DIR$/mahout-spark-shell_2.10.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mahout-spark_2.10.iml" filepath="$PROJECT_DIR$/mahout-spark_2.10.iml" />
+    </modules>
+  </component>
+</project>

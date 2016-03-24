@@ -42,8 +42,8 @@ public class LDA2Job extends AbstractJob {
         static int numTopics = 100;
 
         // naj bi bilo okoli 50/numTopics
-        //static double doc_topic_smoothening = 0.0001;
-        //static double term_topic_smoothening = 0.0001;
+        //static double docTopicSmoothening = 0.0001;
+        //static double termTopicSmoothening = 0.0001;
         static double doc_topic_smoothening = 50/numTopics; // alpha
         static double term_topic_smoothening = 50/numTopics; // eta
         // da pohitrim testiranje
@@ -66,10 +66,19 @@ public class LDA2Job extends AbstractJob {
         public static void main(String args[]) throws Exception {
                 // String baseFileLocation = args[0];
                 if(args.length == 0) {
-                        System.out.println("Parameters:\n1-file location\n2-start at step:\n\t1-beginning (convert the directory into seqFile)\n"
-                                +"\t2-generate TF (converting the seq to vector)\n\t3-convert TF for LDA input\n\t4-LDA (Run the LDA algo)\n\t5-output (vectordump topic-term)"
-                                +"\n3-number of topics("+numTopics+")\n4-number of iterations("+maxIter+")\n5-number of iterations per document("+maxItersPerDoc+")\n"
-                                +"5-block size("+iteration_block_size+")\n6-number of train threads("+numTrainThreads+")\n7-number of update threads("+numUpdateThreads+")\n");
+                        System.out.println("Parameters:\n" +
+                                "1-file location\n2-start at step:\n" +
+                                "\t1-beginning (convert the directory into seqFile)\n" +
+                                "\t2-generate TF (converting the seq to vector)\n" +
+                                "\t3-convert TF for LDA input\n" +
+                                "\t4-LDA (Run the LDA algo)\n" +
+                                "\t5-output (vectordump topic-term)\n" +
+                                "3-number of topics("+numTopics+")\n" +
+                                "4-number of iterations("+maxIter+")\n" +
+                                "5-number of iterations per document("+maxItersPerDoc+")\n" +
+                                "5-block size("+iteration_block_size+")\n" +
+                                "6-number of train threads("+numTrainThreads+")\n" +
+                                "7-number of update threads("+numUpdateThreads+")\n");
                 } else {
                         int argSize = args.length;
                         if(argSize > 1) {
@@ -98,9 +107,15 @@ public class LDA2Job extends AbstractJob {
 
                         String baseFileLocation = args[0];
 
-                        System.out.println("Running LDA Job:\n1-file location:"+baseFileLocation+"\n2-start at step:"+startAtStep
-                                +"\n3-number of topics:"+numTopics+"\n4-number of iterations:"+maxIter+"\n5-number of iterations per document:"+maxItersPerDoc+"\n"
-                                +"5-block size:"+iteration_block_size+"\n6-number of train threads:"+numTrainThreads+"\n7-number of update threads:"+numUpdateThreads+"\n");
+                        System.out.println("Running LDA Job:\n" +
+                                "1-file location:"+baseFileLocation+"\n" +
+                                "2-start at step:"+startAtStep + "\n" +
+                                "3-number of topics:"+numTopics+"\n" +
+                                "4-number of iterations:"+maxIter+"\n" +
+                                "5-number of iterations per document:"+maxItersPerDoc+"\n" +
+                                "5-block size:"+iteration_block_size+"\n" +
+                                "6-number of train threads:"+numTrainThreads+"\n" +
+                                "7-number of update threads:"+numUpdateThreads+"\n");
 
                         Path output = new Path(baseFileLocation, "/output");
                         Configuration conf = new Configuration();
@@ -114,6 +129,11 @@ public class LDA2Job extends AbstractJob {
         }
 
         public int run(String[] arg0) throws Exception {
+
+                //16/03/23 19:42:55 INFO Configuration.deprecation: mapred.input.dir is deprecated. Instead, use mapreduce.input.fileinputformat.inputdir
+                //16/03/23 19:42:55 INFO Configuration.deprecation: mapred.compress.map.output is deprecated. Instead, use mapreduce.map.output.compress
+                //16/03/23 19:42:55 INFO Configuration.deprecation: mapred.output.dir is deprecated. Instead, use mapreduce.output.fileoutputformat.outputdir
+
                 Configuration conf = getConf();
                 // String baseFileLocation = "/Users/pin/java";
                 String baseFileLocation = conf.get("baseFileLocation");

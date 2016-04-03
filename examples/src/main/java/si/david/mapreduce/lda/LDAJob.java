@@ -20,7 +20,6 @@ import org.apache.mahout.vectorizer.SparseVectorsFromSequenceFiles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 
 /**
@@ -29,14 +28,10 @@ import java.io.IOException;
 
 public class LDAJob extends AbstractJob {
         public static final String ANSI_RESET = "\u001B[0m";
-        public static final String ANSI_BLACK = "\u001B[30m";
         public static final String ANSI_RED = "\u001B[31m";
         public static final String ANSI_GREEN = "\u001B[32m";
         public static final String ANSI_YELLOW = "\u001B[33m";
         public static final String ANSI_BLUE = "\u001B[34m";
-        public static final String ANSI_PURPLE = "\u001B[35m";
-        public static final String ANSI_CYAN = "\u001B[36m";
-        public static final String ANSI_WHITE = "\u001B[37m";
 
 
         private static final Logger log = LoggerFactory.getLogger(Job.class);
@@ -67,6 +62,10 @@ public class LDAJob extends AbstractJob {
         static boolean printAll=false;
 
         static String ldaSplitSize="10485760";
+        static String ldaOutputPath ="";
+        static boolean useTFIDF = false;
+        static int maxDFPercent = 85;
+        static int minDF = 2;
 
         public static void main(String args[]) throws Exception {
 
@@ -143,8 +142,46 @@ public class LDAJob extends AbstractJob {
                         .longOpt("ldaSplitSize")
                         .desc("LDA split size in bytes (default: "+LDAJob.ldaSplitSize+")")
                         .build();
+                Option numReduceTasksOpt = Option.builder("nr")
+                        .hasArg()
+                        .argName("number")
+                        .longOpt("numReduceTasks")
+                        .desc("Number of reduce tasks (default: "+LDAJob.numReduceTasks+")")
+                        .build();
                 Option backfillPerplexityOpt = new Option("bf", "backfillPerplexity", false, "backfill perplexity");
                 Option printAllOpt = new Option("pa","print all results");
+                Option outFileLocationOpt = Option.builder("o")
+                        .hasArg()
+                        .argName("folder")
+                        .longOpt("output")
+                        .desc("output folders location")
+                        .build();
+                Option useTFIDFOpt = new Option("ti", "tfidf", false, "use TF-IDF weight instead of TF");
+                Option maxDFPercentOpt = Option.builder("mxd")
+                        .hasArg()
+                        .argName("percent")
+                        .longOpt("maxDFPercent")
+                        .desc("max % od docs for document frequency - removes terms, used in more than maxDFPercent% documents (default: "+maxDFPercent+")")
+                        .build();
+                Option minDFOpt = Option.builder("mnd")
+                        .hasArg()
+                        .argName("number of documents")
+                        .longOpt("minDF")
+                        .desc("min number od docs for document frequency - removes terms, used in less than minDF documents (default: "+minDF+")")
+                        .build();
+                Option alphaOpt = Option.builder("a")
+                        .hasArg()
+                        .argName("decimal")
+                        .longOpt("alpha")
+                        .desc("alpha parameter - documents per topic smoothing (default: (number of topics)/50)")
+                        .build();
+                Option etaOpt = Option.builder("e")
+                        .hasArg()
+                        .argName("decimal")
+                        .longOpt("eta")
+                        .desc("eta parameter - terms per topic smoothing (default: (number of topics)/50)")
+                        .build();
+
 
                 Options options = new Options();
                 options.addOption(fileLocationOpt);
@@ -161,6 +198,13 @@ public class LDAJob extends AbstractJob {
                 options.addOption(backfillPerplexityOpt);
                 options.addOption(printAllOpt);
                 options.addOption(ldaSplitSizeOpt);
+                options.addOption(numReduceTasksOpt);
+                options.addOption(outFileLocationOpt);
+                options.addOption(useTFIDFOpt);
+                options.addOption(maxDFPercentOpt);
+                options.addOption(minDFOpt);
+                options.addOption(alphaOpt);
+                options.addOption(etaOpt);
 
                 if(args.length == 0) {
                         HelpFormatter formatter = new HelpFormatter();
@@ -174,10 +218,7 @@ public class LDAJob extends AbstractJob {
                                 baseFileLocation = line.getOptionValue("f");
                         } else {
                                 HelpFormatter formatter = new HelpFormatter();
-                                String fileName="mahout-examples-0.11.1-job.jar";
-                                try {
-                                        fileName = new File(LDAJob.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()).getName();
-                                } catch (Exception e) { }
+                                String fileName="mahout-lda-job.jar";
                                 formatter.printHelp( "Location is required. Usage: hadoop jar "+fileName+" si.david.mapreduce.lda.LDAJob", options );
 
                                 return;
@@ -187,49 +228,78 @@ public class LDAJob extends AbstractJob {
                                 startAtStep = Integer.parseInt(line.getOptionValue("s"));
                         }
 
-                        if(line.hasOption("t")) {
-                                numTopics = Integer.parseInt(line.getOptionValue("t"));
+                        if(line.hasOption(outFileLocationOpt.getOpt())) {
+                                ldaOutputPath =line.getOptionValue(outFileLocationOpt.getOpt());
+                                if(!ldaOutputPath.endsWith("/")) {
+                                        ldaOutputPath = ldaOutputPath +"/";
+                                }
+                        }
+
+                        if(line.hasOption(numTopicsOpt.getOpt())) {
+                                numTopics = Integer.parseInt(line.getOptionValue(numTopicsOpt.getOpt()));
                                 docTopicSmoothening = 50/numTopics;
                                 termTopicSmoothening = 50/numTopics;
                         }
-
-                        singleStep=line.hasOption("st");
-
-                        if(line.hasOption("i")) {
-                                maxIter = Integer.parseInt(line.getOptionValue("i"));
+                        if (line.hasOption(alphaOpt.getOpt())) {
+                                docTopicSmoothening=Double.parseDouble(line.getOptionValue(alphaOpt.getOpt()));
+                        }
+                        if (line.hasOption(etaOpt.getOpt())) {
+                                termTopicSmoothening=Double.parseDouble(line.getOptionValue(etaOpt.getOpt()));
                         }
 
-                        if(line.hasOption("d")) {
-                                maxItersPerDoc = Integer.parseInt(line.getOptionValue("d"));
+                        singleStep=line.hasOption(executeSingleStepOpt.getOpt());
+
+                        if(line.hasOption(numIterationsOpt.getOpt())) {
+                                maxIter = Integer.parseInt(line.getOptionValue(numIterationsOpt.getOpt()));
                         }
 
-                        if(line.hasOption("b")) {
-                                iterationBlockSize = Integer.parseInt(line.getOptionValue("b"));
+                        if(line.hasOption(numIterationsPerDocOpt.getOpt())) {
+                                maxItersPerDoc = Integer.parseInt(line.getOptionValue(numIterationsPerDocOpt.getOpt()));
                         }
 
-                        if(line.hasOption("tr")) {
-                                numTrainThreads = Integer.parseInt(line.getOptionValue("tr"));
+                        if(line.hasOption(blockSizeOpt.getOpt())) {
+                                iterationBlockSize = Integer.parseInt(line.getOptionValue(blockSizeOpt.getOpt()));
                         }
 
-                        if(line.hasOption("u")) {
-                                numUpdateThreads = Integer.parseInt(line.getOptionValue("u"));
+                        if(line.hasOption(trainThreadsOpt.getOpt())) {
+                                numTrainThreads = Integer.parseInt(line.getOptionValue(trainThreadsOpt.getOpt()));
                         }
 
-                        backfillPerplexity=line.hasOption("bf");
-                        printAll=line.hasOption("pa");
-
-                        if(line.hasOption("tf")) {
-                                testFraction = Float.parseFloat(line.getOptionValue("tf"));
+                        if(line.hasOption(updateThreadsOpt.getOpt())) {
+                                numUpdateThreads = Integer.parseInt(line.getOptionValue(updateThreadsOpt.getOpt()));
                         }
 
-                        if(line.hasOption("cd")) {
-                                convergenceDelta = Double.parseDouble(line.getOptionValue("cd"));
+                        backfillPerplexity=line.hasOption(backfillPerplexityOpt.getOpt());
+                        printAll=line.hasOption(printAllOpt.getOpt());
+
+                        if(line.hasOption(testFractionOpt.getOpt())) {
+                                testFraction = Float.parseFloat(line.getOptionValue(testFractionOpt.getOpt()));
                         }
 
-                        if(line.hasOption("ls")) {
-                                ldaSplitSize = line.getOptionValue("ls");
+                        if(line.hasOption(convergenceDeltaOpt.getOpt())) {
+                                convergenceDelta = Double.parseDouble(line.getOptionValue(convergenceDeltaOpt.getOpt()));
                         }
 
+                        if(line.hasOption(ldaSplitSizeOpt.getOpt())) {
+                                ldaSplitSize = line.getOptionValue(ldaSplitSizeOpt.getOpt());
+                        }
+                        if(line.hasOption(numReduceTasksOpt.getOpt())) {
+                                numReduceTasks = Integer.parseInt(line.getOptionValue(numReduceTasksOpt.getOpt()));
+                        }
+                        useTFIDF=line.hasOption(useTFIDFOpt.getOpt());
+                        if(line.hasOption(maxDFPercentOpt.getOpt())) {
+                                maxDFPercent = Integer.parseInt(line.getOptionValue(maxDFPercentOpt.getOpt()));
+                        }
+                        if(line.hasOption(minDFOpt.getOpt())) {
+                                minDF = Integer.parseInt(line.getOptionValue(minDFOpt.getOpt()));
+                        }
+
+
+
+                        Option[] opts = line.getOptions();
+                        for(Option o: opts) {
+                                System.out.println(o.getDescription()+": "+o.getValue());
+                        }
 
                         System.out.println("Running LDA Job:\n" +
                                 "1-file location:"+baseFileLocation+"\n" +
@@ -239,7 +309,8 @@ public class LDAJob extends AbstractJob {
                                 "5-number of iterations per document:"+maxItersPerDoc+"\n" +
                                 "5-block size:"+ iterationBlockSize +"\n" +
                                 "6-number of train threads:"+numTrainThreads+"\n" +
-                                "7-number of update threads:"+numUpdateThreads+"\n");
+                                "7-number of update threads:"+numUpdateThreads+"\n" +
+                                "8-number of reduce tasks:"+numReduceTasks+"\n");
 
                         Path output = new Path(baseFileLocation, "/output");
                         Configuration conf = new Configuration();
@@ -262,15 +333,15 @@ public class LDAJob extends AbstractJob {
                 String baseFileLocation = conf.get("baseFileLocation");
                 Path input = new Path(baseFileLocation);
                 System.out.println(input.toString());
-                String seqFileOutput = "SeqFile";
-                String vectorOutFile = "VectorFile";
-                String rowIDOutFile = "RowIdOutput";
-                String ldaOutputFile = "topicModelOutputPath";
+                String seqFileOutput = ldaOutputPath +"SeqFile";
+                String vectorOutFile = ldaOutputPath +"VectorFile";
+                String rowIDOutFile = ldaOutputPath +"RowIdOutput";
+                String ldaOutputFile = ldaOutputPath +"topicModelOutput";
                 String dictionaryFileName = vectorOutFile + "/dictionary.file-0";
-                String tempLDAModelFile = "modelTempPath";
-                String docTopicOutput = "docTopicOutputPath";
-                String topicTermVectorDumpPath = "topicTermVectorDump";
-                String docTopicVectorDumpPath = "docTopicVectorDump";
+                String tempLDAModelFile = ldaOutputPath +"modelTemp";
+                String docTopicOutput = ldaOutputPath +"docTopicOutput";
+                String topicTermVectorDumpPath = ldaOutputPath +"topicTermVectorDump";
+                String docTopicVectorDumpPath = ldaOutputPath +"docTopicVectorDump";
 
                 // String topicTermVectorDump = "topicTermVectorDump";
 
@@ -313,7 +384,7 @@ public class LDAJob extends AbstractJob {
                                 "--namedVector", "--analyzerName",
                                 "org.apache.lucene.analysis.core.WhitespaceAnalyzer" };*/
                         String[] seqToVectorArgs = {"--input", seqFileOutput, "--output",
-                                vectorOutFile, "--maxDFPercent", "85", "--minDF", "2", "--maxNGramSize", "1", "--weight", "TF",
+                                vectorOutFile, "--maxDFPercent", ""+maxDFPercent, "--minDF", ""+minDF, "--maxNGramSize", "1", "--weight", useTFIDF?"TFIDF":"TF",
                                 "--namedVector", "--analyzerName",
                                 "org.apache.lucene.analysis.core.WhitespaceAnalyzer"};
                         ToolRunner.run(new SparseVectorsFromSequenceFiles(), seqToVectorArgs);
@@ -329,7 +400,7 @@ public class LDAJob extends AbstractJob {
                         "-Dmapred.output.dir=" + rowIDOutFile };*/
                         String[] rowIdArgs = {
                                 "-Dmapred.input.dir=" + vectorOutFile
-                                        + "/tf-vectors/part-r-00000",
+                                        + (useTFIDF?"/tfidf-vectors/part-r-00000":"/tf-vectors/part-r-00000"),
                                 "-Dmapred.output.dir=" + rowIDOutFile};
                         ToolRunner.run(new RowIdJob(), rowIdArgs);
                         System.out.println("finished rowID job");

@@ -90,6 +90,7 @@ org.apache.mahout.math.hadoop.similarity.cooccurrence.RowSimilarityJob
                 System.out.println(ANSI_RED+"Starting to calculate similarity"+ANSI_RESET);
 
 
+                //Command line arguments: {--endPhase=[2147483647], --excludeSelfSimilarity=[false]
                 String[] rowSimilarityArgs = {"-i",  docTopicOutput, "-o", rowSimilarityOutput, "-r", ""+ numTopics,
                         "--similarityClassname", "SIMILARITY_EUCLIDEAN_DISTANCE", "-m", "10", "-ess"};
 

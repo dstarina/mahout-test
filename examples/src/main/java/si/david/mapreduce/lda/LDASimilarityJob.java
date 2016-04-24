@@ -2,11 +2,12 @@ package si.david.mapreduce.lda;
 
 import org.apache.commons.clilda.*;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.jobcontrol.Job;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.mahout.classifier.df.DFUtils;
 import org.apache.mahout.clustering.classify.WeightedPropertyVectorWritable;
 import org.apache.mahout.common.AbstractJob;
 import org.apache.mahout.common.HadoopUtil;
@@ -14,12 +15,9 @@ import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.iterator.sequencefile.SequenceFileIterable;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
-import org.apache.mahout.math.hadoop.similarity.cooccurrence.RowSimilarityJob;
-import org.apache.mahout.utils.vectors.VectorDumper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -122,25 +120,33 @@ public class LDASimilarityJob extends AbstractJob {
 
                 ArrayList<Pair<String, Vector>> a = new ArrayList<Pair<String, Vector>>();
                 //SequenceFile.Reader.file()
-                SequenceFileIterable<Writable, Writable> iterable = new SequenceFileIterable<Writable, Writable>(new Path(baseFileLocation), true, conf);
-                Iterator<Pair<Writable, Writable>> iterator = iterable.iterator();
-                //long i = 0;
-                while (iterator.hasNext()) {
-                        Pair<Writable, Writable> record = iterator.next();
-                        Writable keyWritable = record.getFirst();
-                        Writable valueWritable = record.getSecond();
 
-                        Vector vector;
-                        try {
-                                vector = ((VectorWritable) valueWritable).get();
-                        } catch (ClassCastException e) {
-                                if (valueWritable instanceof WeightedPropertyVectorWritable) {
-                                        vector = ((WeightedPropertyVectorWritable) valueWritable).getVector();
-                                } else {
-                                        throw e;
+                Path files = new Path(baseFileLocation);
+                FileSystem fs = files.getFileSystem(conf);
+                Path[] outfiles = DFUtils.listOutputFiles(fs, files);
+                for (Path path : outfiles) {
+
+                        //SequenceFileIterable<Writable, Writable> iterable = new SequenceFileIterable<Writable, Writable>(new Path(baseFileLocation), true, conf);
+                        SequenceFileIterable<Writable, Writable> iterable = new SequenceFileIterable<Writable, Writable>(path, true, conf);
+                        Iterator<Pair<Writable, Writable>> iterator = iterable.iterator();
+                        //long i = 0;
+                        while (iterator.hasNext()) {
+                                Pair<Writable, Writable> record = iterator.next();
+                                Writable keyWritable = record.getFirst();
+                                Writable valueWritable = record.getSecond();
+
+                                Vector vector;
+                                try {
+                                        vector = ((VectorWritable) valueWritable).get();
+                                } catch (ClassCastException e) {
+                                        if (valueWritable instanceof WeightedPropertyVectorWritable) {
+                                                vector = ((WeightedPropertyVectorWritable) valueWritable).getVector();
+                                        } else {
+                                                throw e;
+                                        }
                                 }
+                                a.add(new Pair<String, Vector>(keyWritable.toString(), vector));
                         }
-                        a.add(new Pair<String, Vector>(keyWritable.toString(),vector));
                 }
 
                 ArrayList<ValueComparablePair<String, Double>> distances = new ArrayList<ValueComparablePair<String, Double>>();
@@ -153,7 +159,7 @@ public class LDASimilarityJob extends AbstractJob {
 
                 System.out.println(ANSI_RED+"Output:"+ANSI_RESET);
                 for(int i = 0; i < numSimilarDocuments; i++) {
-                        System.out.print(distances.get(distances.size()-1-i).getFirst().toString()+" ");
+                        System.out.print("("+distances.get(distances.size()-1-i).getFirst().toString()+","+distances.get(distances.size()-1-i).getSecond().toString()+") ");
                 }
 
                 return 0;

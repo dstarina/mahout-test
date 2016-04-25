@@ -32,6 +32,7 @@ public class LDASimilarityJob extends AbstractJob {
 
         static String ldaOutputPath ="";
         static int similaritiesForDocument = 0; // -1 = all documents;
+        static int similaritiesForDocumentTo = 0; // -1 = all documents;
         static int numSimilarDocuments = -1; // number of similar documents to find;
 
         private static final Logger log = LoggerFactory.getLogger(Job.class);
@@ -58,6 +59,12 @@ public class LDASimilarityJob extends AbstractJob {
                         .longOpt("document")
                         .desc("number of document to compare")
                         .build();
+                Option docNumberToOpt = Option.builder("t")
+                        .hasArg()
+                        .argName("number")
+                        .longOpt("documentTo")
+                        .desc("compare from document <d> to <t>")
+                        .build();
                 Option numSimilaritiesOpt = Option.builder("n")
                         .hasArg()
                         .argName("number")
@@ -69,6 +76,7 @@ public class LDASimilarityJob extends AbstractJob {
                 options.addOption(fileLocationOpt);
                 options.addOption(outFileLocationOpt);
                 options.addOption(docNumberOpt);
+                options.addOption(docNumberToOpt);
                 options.addOption(numSimilaritiesOpt);
 
 
@@ -100,6 +108,10 @@ public class LDASimilarityJob extends AbstractJob {
                 }
                 if(line.hasOption(docNumberOpt.getOpt())) {
                         similaritiesForDocument = Integer.parseInt(line.getOptionValue(docNumberOpt.getOpt()));
+                        similaritiesForDocumentTo = similaritiesForDocument;
+                }
+                if(line.hasOption(docNumberToOpt.getOpt())) {
+                        similaritiesForDocumentTo = Integer.parseInt(line.getOptionValue(docNumberToOpt.getOpt()));
                 }
                 if(line.hasOption(numSimilaritiesOpt.getOpt())) {
                         numSimilarDocuments = Integer.parseInt(line.getOptionValue(numSimilaritiesOpt.getOpt()));
@@ -123,8 +135,8 @@ public class LDASimilarityJob extends AbstractJob {
 
                 Path files = new Path(baseFileLocation);
                 FileSystem fs = files.getFileSystem(conf);
-                Path[] outfiles = DFUtils.listOutputFiles(fs, files);
-                for (Path path : outfiles) {
+                Path[] seqfiles = DFUtils.listOutputFiles(fs, files);
+                for (Path path : seqfiles) {
 
                         //SequenceFileIterable<Writable, Writable> iterable = new SequenceFileIterable<Writable, Writable>(new Path(baseFileLocation), true, conf);
                         SequenceFileIterable<Writable, Writable> iterable = new SequenceFileIterable<Writable, Writable>(path, true, conf);
@@ -149,17 +161,23 @@ public class LDASimilarityJob extends AbstractJob {
                         }
                 }
 
-                ArrayList<ValueComparablePair<String, Double>> distances = new ArrayList<ValueComparablePair<String, Double>>();
-                Vector firstVector = a.get(similaritiesForDocument).getSecond();
-                for(Pair<String, Vector> p: a) {
-                        distances.add(new ValueComparablePair<String, Double>(p.getFirst(), cosineSimilarity(firstVector, p.getSecond())));
-                }
+                while (similaritiesForDocument <= similaritiesForDocumentTo) {
+                        ArrayList<ValueComparablePair<String, Double>> distances = new ArrayList<ValueComparablePair<String, Double>>();
+                        Vector firstVector = a.get(similaritiesForDocument).getSecond();
+                        for (Pair<String, Vector> p : a) {
+                                distances.add(new ValueComparablePair<String, Double>(p.getFirst(), cosineSimilarity(firstVector, p.getSecond())));
+                        }
 
-                Collections.sort(distances);
+                        Collections.sort(distances);
 
-                System.out.println(ANSI_RED+"Output:"+ANSI_RESET);
-                for(int i = 0; i < numSimilarDocuments; i++) {
-                        System.out.print("("+distances.get(distances.size()-1-i).getFirst().toString()+","+distances.get(distances.size()-1-i).getSecond().toString()+") ");
+                        System.out.print(ANSI_RED+"::"+ANSI_RESET);
+                        //System.out.println(ANSI_RED+"Output:"+ANSI_RESET);
+                        for (int i = 0; i < numSimilarDocuments; i++) {
+                                System.out.print("(" + distances.get(distances.size() - 1 - i).getFirst().toString() + "," + distances.get(distances.size() - 1 - i).getSecond().toString() + ") ");
+                        }
+                        System.out.println();
+
+                        similaritiesForDocument++;
                 }
 
                 return 0;
